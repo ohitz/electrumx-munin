@@ -1,0 +1,146 @@
+#!/bin/sh
+
+: << =cut
+
+=head1 NAME
+
+electrumx_ - Plugin to monitor ElectrumX
+
+=head1 CONFIGURATION
+
+ [electrumx*]
+    user electrumx
+    env.electrumx_rpc /usr/local/bin/electrumx_rpc.py
+
+=head1 AUTHOR
+
+Oliver Hitz
+
+=head1 LICENSE
+
+MIT License
+
+=head1 MAGIC MARKERS
+
+ #%# family=auto
+ #%# capabilities=autoconf suggest
+
+=cut
+
+electrumx_rpc="${electrumx_rpc:-electrumx_rpc.py}"
+
+stat=${0##*/electrumx_}
+
+case "$1" in
+autoconf)
+	env $electrumx_rpc getinfo > /dev/null 2>&1
+	if [ $? -eq 0 ]; then
+		which jq > /dev/null 2>&1
+		if [ $? -eq 0 ]; then
+			echo yes
+		else
+			echo "no (jq not installed)"	
+		fi
+	else
+		echo "no (env $electrumx_rpc getinfo returned value > 0)"
+	fi
+	exit 0
+	;;
+suggest)
+	echo "sessions
+errors
+peers
+subs
+tx"
+	exit 0
+	;;
+config)
+	case "$stat" in
+	sessions)
+		echo "graph_title ElectrumX sessions
+graph_args --base 1000
+graph_vlabel sessions
+graph_category electrumx
+graph_info This show the number of sessions to the ElectrumX server.
+sessions.label Current sessions
+sessions.info Number of current sessions
+closing.label Closing sessions
+closing.info Number of sessions being closed
+paused.label Paused sessions
+paused.info Number of paused sessions"
+		;;
+	errors)
+		echo "graph_title ElectrumX errors
+graph_args --base 1000
+graph_vlabel peers
+graph_category electrumx
+graph_info Shows the nmber of errors.
+errors.label Errors
+errors.info Number of errors"
+		;;
+	peers)
+		echo "graph_title ElectrumX peers
+graph_args --base 1000
+graph_vlabel peers
+graph_category electrumx
+graph_info Shows the nmber of peers connected to this ElectrumX server.
+bad.label Bad peers
+bad.info Number of bad peers
+good.label Good peers
+good.info Number of good peers
+stale.label Stale peers
+stale.info Number of stale peers
+total.label Total peers
+total.info Total peers"
+		;;
+	subs)
+		echo "graph_title ElectrumX address subscriptions
+graph_args --base 1000
+graph_vlabel addresses
+graph_category electrumx
+graph_info Shows the number of subscribed addresses.
+subs.label Address subscriptions
+subs.info Number of subscribed addresses"
+		;;
+	tx)
+		echo "graph_title ElectrumX transactions
+graph_args --base 1000
+graph_vlabel transactions
+graph_category electrumx
+graph_info Shows the number of transactions
+txs_sent.label Sent transactions
+txs_sent.info Number of sent transactions"
+		;;
+	esac
+	exit 0
+	;;
+esac
+
+case "$stat" in
+sessions)
+	INFO=`$electrumx_rpc getinfo`
+	echo "sessions.value $(echo $INFO | jq .sessions)"
+	echo "closing.value $(echo $INFO | jq .closing)"
+	echo "paused.value $(echo $INFO | jq .paused)"
+	;;
+errors)
+	INFO=`$electrumx_rpc getinfo`
+	echo "errors.value $(echo $INFO | jq .errors)"
+	;;
+peers)
+	INFO=`$electrumx_rpc getinfo`
+	echo "bad.value $(echo $INFO | jq .peers.bad)"
+	echo "good.value $(echo $INFO | jq .peers.good)"
+	echo "stale.value $(echo $INFO | jq .peers.stale)"
+	echo "total.value $(echo $INFO | jq .peers.total)"
+	;;
+subs)
+	INFO=`$electrumx_rpc getinfo`
+	echo "subs.value $(echo $INFO | jq .subs)"
+	;;
+tx)
+	INFO=`$electrumx_rpc getinfo`
+	echo "txs_sent.value $(echo $INFO | jq .txs_sent)"
+	;;
+esac
+
